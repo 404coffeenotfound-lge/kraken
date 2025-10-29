@@ -20,10 +20,11 @@ static const board_display_config_t s_display_config = {
 
 static const board_audio_config_t s_audio_config = {
     .port = I2S_NUM_0,
-    .pin_bclk = 4,
-    .pin_lrclk = 5,
-    .pin_dout = 6,
-    .pin_din = 7,
+    .pin_bclk = 4,       // MAX98357A BCLK
+    .pin_lrclk = 5,      // MAX98357A LRC (Word Select)
+    .pin_dout = 6,       // MAX98357A DIN (Data Input)
+    .pin_din = -1,       // Not used (MAX98357A is output only)
+    .pin_sd = 7,         // MAX98357A SD (Shutdown control)
 };
 
 static const board_input_config_t s_input_config = {

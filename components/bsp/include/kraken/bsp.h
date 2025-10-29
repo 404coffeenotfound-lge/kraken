@@ -26,6 +26,7 @@ typedef struct {
     int pin_lrclk;
     int pin_dout;
     int pin_din;
+    int pin_sd;  // MAX98357A shutdown pin (SD)
 } board_audio_config_t;
 
 typedef struct {

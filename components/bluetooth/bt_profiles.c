@@ -11,8 +11,13 @@
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
 #include "esp_hf_client_api.h"
-#include "esp_hidh_api.h"
+#include "esp_event.h"
+#ifdef CONFIG_BT_HID_HOST_ENABLED
+#include "esp_hidh.h"
+#endif
+#ifdef CONFIG_BT_HID_DEVICE_ENABLED
 #include "esp_hidd_api.h"
+#endif
 #endif
 
 static const char *TAG = "bt_profiles";
@@ -433,6 +438,7 @@ static esp_err_t hfp_client_deinit(void)
 // HID Host Implementation
 // ============================================================================
 
+#ifdef CONFIG_BT_HID_HOST_ENABLED
 static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
     esp_hidh_event_t event = (esp_hidh_event_t)id;
@@ -496,6 +502,18 @@ static esp_err_t hidh_deinit(void)
     ESP_LOGI(TAG, "HID Host deinitialized");
     return ESP_OK;
 }
+#else
+static esp_err_t hidh_init(void)
+{
+    ESP_LOGW(TAG, "HID Host not enabled in configuration");
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+static esp_err_t hidh_deinit(void)
+{
+    return ESP_OK;
+}
+#endif
 
 
 // ============================================================================
@@ -711,7 +729,7 @@ esp_err_t bt_a2dp_source_connect(const uint8_t *remote_bda)
         return ESP_ERR_INVALID_ARG;
     }
     
-    esp_err_t ret = esp_a2d_source_connect(remote_bda);
+    esp_err_t ret = esp_a2d_source_connect((uint8_t *)remote_bda);
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "A2DP Source connecting to device");
     } else {
@@ -779,14 +797,9 @@ esp_err_t bt_a2dp_source_write_data(const uint8_t *data, uint32_t len)
         return ESP_ERR_INVALID_ARG;
     }
     
-    // Send audio data to A2DP source
-    esp_err_t ret = esp_a2d_source_write_data((uint8_t *)data, len);
-    
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "A2DP Source write data failed: %d", ret);
-    }
-    
-    return ret;
+    // TODO: Implement using esp_a2d_source_audio_data_send with proper connection handle
+    ESP_LOGW(TAG, "A2DP Source write data not yet implemented");
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 // AVRCP Functions

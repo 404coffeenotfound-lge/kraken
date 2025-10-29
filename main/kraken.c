@@ -5,6 +5,7 @@
 #include "kraken/bt_service.h"
 #include "kraken/display_service.h"
 #include "kraken/system_service.h"
+#include "kraken/audio_service.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 
@@ -35,6 +36,11 @@ void app_main(void)
                                              bt_service_init,
                                              bt_service_deinit));
 
+    ESP_ERROR_CHECK(kraken_service_register("audio",
+                                             KRAKEN_PERM_AUDIO,
+                                             audio_service_init,
+                                             audio_service_deinit));
+
     ESP_ERROR_CHECK(kraken_service_register("display",
                                              KRAKEN_PERM_DISPLAY | KRAKEN_PERM_WIFI | KRAKEN_PERM_NETWORK,
                                              display_service_init,
@@ -46,8 +52,10 @@ void app_main(void)
                                              system_service_deinit));
 
     ESP_ERROR_CHECK(kraken_service_start("system"));
+    ESP_ERROR_CHECK(kraken_service_start("audio"));
     ESP_ERROR_CHECK(kraken_service_start("display"));
     ESP_ERROR_CHECK(kraken_service_start("wifi"));
+    ESP_ERROR_CHECK(kraken_service_start("bluetooth"));
     
     ESP_ERROR_CHECK(system_service_start_input_monitor());
 

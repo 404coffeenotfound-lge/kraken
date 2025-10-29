@@ -44,7 +44,7 @@ static struct {
 static void bt_toggle_event_cb(lv_event_t *e);
 static void create_device_list(void);
 static void update_device_selection(void);
-static void connect_to_device(const uint8_t *mac);
+static void connect_to_device(const bt_device_info_t *device);
 
 static void notification_timer_cb(lv_timer_t *timer)
 {
@@ -360,9 +360,13 @@ static void update_device_selection(void)
     }
 }
 
-static void connect_to_device(const uint8_t *mac)
+static void connect_to_device(const bt_device_info_t *device)
 {
-    esp_err_t ret = bt_service_connect(mac);
+    if (!device) {
+        return;
+    }
+    
+    esp_err_t ret = bt_service_connect(device->mac, device->addr_type);
     
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "Bluetooth connect command sent");
@@ -466,7 +470,7 @@ void ui_bluetooth_handle_input(kraken_event_type_t input)
                 ESP_LOGI(TAG, "Connecting to: %s (%s)", 
                         dev->name[0] ? dev->name : "Unknown", mac_str);
                 
-                connect_to_device(dev->mac);
+                connect_to_device(dev);
             }
         } else if (g_bluetooth.focus == FOCUS_BACK_BUTTON) {
             ESP_LOGI(TAG, "Back button pressed, exiting submenu");
