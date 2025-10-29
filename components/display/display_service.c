@@ -48,7 +48,7 @@ esp_err_t display_service_init(void)
     esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = cfg->pin_dc,
         .cs_gpio_num = cfg->pin_cs,
-        .pclk_hz = 40 * 1000 * 1000,
+        .pclk_hz = 40 * 1000 * 1000,  // 40MHz like working config
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
         .spi_mode = 0,
@@ -59,20 +59,23 @@ esp_err_t display_service_init(void)
 
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = cfg->pin_rst,
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
+        .color_space = ESP_LCD_COLOR_SPACE_RGB,  // Use color_space instead of rgb_ele_order
         .bits_per_pixel = 16,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &g_display.panel_handle));
 
     ESP_ERROR_CHECK(esp_lcd_panel_reset(g_display.panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(g_display.panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(g_display.panel_handle, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(g_display.panel_handle, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(g_display.panel_handle, false, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(g_display.panel_handle, 0, 0));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(g_display.panel_handle, true));
+    
+    ESP_LOGI(TAG, "Display: RGB color space, no additional transforms");
 
-    const lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    const lvgl_port_cfg_t lvgl_cfg = {
+        .task_priority = configMAX_PRIORITIES - 3,
+        .task_stack = 6144,
+        .task_affinity = 1,
+        .timer_period_ms = 5,
+    };
     ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
 
     const lvgl_port_display_cfg_t disp_cfg = {
@@ -83,23 +86,36 @@ esp_err_t display_service_init(void)
         .hres = cfg->hor_res,
         .vres = cfg->ver_res,
         .monochrome = false,
-        .rotation = {
-            .swap_xy = false,
-            .mirror_x = false,
-            .mirror_y = false,
-        },
+        .color_format = LV_COLOR_FORMAT_RGB565,
         .flags = {
-            .buff_dma = true,
-            .buff_spiram = false,
-        }
+            .swap_bytes = 1,  // Critical for correct colors!
+        },
     };
     g_display.disp = lvgl_port_add_disp(&disp_cfg);
 
+    // Lock LVGL for thread-safe operations
+    lvgl_port_lock(0);
+    
     g_display.screen = lv_screen_active();
-    lv_obj_set_style_bg_color(g_display.screen, lv_color_hex(0x000000), 0);
+    
+    // Set LVGL to use light theme (black background, white text)
+    lv_theme_t *theme = lv_theme_default_init(g_display.disp, 
+                                                lv_palette_main(LV_PALETTE_BLUE),
+                                                lv_palette_main(LV_PALETTE_GREY),
+                                                false,  // false = light mode
+                                                &lv_font_montserrat_14);
+    lv_disp_set_theme(g_display.disp, theme);
+    
+    lv_obj_set_style_bg_color(g_display.screen, lv_color_hex(0xFFFFFF), 0);  // White = Black (swap_bytes)
+    
+    // Log screen dimensions
+    ESP_LOGI(TAG, "Screen dimensions: %dx%d", lv_obj_get_width(g_display.screen), 
+             lv_obj_get_height(g_display.screen));
 
     // Initialize UI Manager with modular UI components
     ESP_ERROR_CHECK(ui_manager_init(g_display.screen));
+    
+    lvgl_port_unlock();
 
     // Create periodic timer for UI updates
     esp_timer_create_args_t timer_args = {
@@ -119,8 +135,11 @@ static void ui_update_timer_callback(void *arg)
 {
     (void)arg;
     // This will be called every second to update the UI
+    // Lock LVGL since we're calling from timer context
+    lvgl_port_lock(0);
     extern void ui_manager_periodic_update(void);
     ui_manager_periodic_update();
+    lvgl_port_unlock();
 }
 
 esp_err_t display_service_deinit(void)

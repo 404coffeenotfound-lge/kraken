@@ -34,17 +34,6 @@ static struct {
     bool running;
 } g_boot = {0};
 
-// Color palette for animation
-static const lv_color_t colors[] = {
-    LV_COLOR_MAKE(0x00, 0x00, 0xFF),  // Blue
-    LV_COLOR_MAKE(0x00, 0xFF, 0x00),  // Green
-    LV_COLOR_MAKE(0x00, 0xFF, 0xFF),  // Cyan
-    LV_COLOR_MAKE(0xFF, 0x00, 0x00),  // Red
-    LV_COLOR_MAKE(0xFF, 0x00, 0xFF),  // Magenta
-    LV_COLOR_MAKE(0xFF, 0xFF, 0x00),  // Yellow
-};
-#define COLOR_COUNT (sizeof(colors) / sizeof(colors[0]))
-
 static void create_pixel_grid(void)
 {
     // Calculate center position
@@ -62,10 +51,10 @@ static void create_pixel_grid(void)
                           start_x + x * (KRAKEN_PIXEL_SIZE + 2),
                           start_y + y * (KRAKEN_PIXEL_SIZE + 2));
             
-            // Style
-            lv_obj_set_style_bg_color(pixel, lv_color_hex(0x000000), 0);
+            // Style - white background with light gray border
+            lv_obj_set_style_bg_color(pixel, lv_color_hex(0xFFFFFF), 0);
             lv_obj_set_style_border_width(pixel, 1, 0);
-            lv_obj_set_style_border_color(pixel, lv_color_hex(0x333333), 0);
+            lv_obj_set_style_border_color(pixel, lv_color_hex(0xD0D0D0), 0);
             lv_obj_set_style_radius(pixel, 2, 0);
             
             // Initially hidden if not part of pattern
@@ -96,15 +85,14 @@ static void animation_tick(lv_timer_t *timer)
     uint32_t time_ms = g_boot.frame * PIXEL_UPDATE_INTERVAL_MS;
     
     if (time_ms < 1000) {
-        // Phase 1: Rainbow fade in
+        // Phase 1: Fade in space gray
         for (int y = 0; y < KRAKEN_PIXELS_Y; y++) {
             for (int x = 0; x < KRAKEN_PIXELS_X; x++) {
                 if (kraken_pattern[y][x] == 'K') {
                     lv_obj_clear_flag(g_boot.pixels[y][x], LV_OBJ_FLAG_HIDDEN);
                     
-                    // Color cycles through rainbow
-                    int color_idx = ((x + y) + (time_ms / 100)) % COLOR_COUNT;
-                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], colors[color_idx], 0);
+                    // Space gray color
+                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], lv_color_hex(0x3C3C3C), 0);
                     
                     // Fade in opacity
                     lv_opa_t opa = (time_ms * 255) / 1000;
@@ -113,41 +101,38 @@ static void animation_tick(lv_timer_t *timer)
             }
         }
     } else if (time_ms < 2500) {
-        // Phase 2: Dancing effect (pulsing size)
+        // Phase 2: Pulsing effect (subtle)
         for (int y = 0; y < KRAKEN_PIXELS_Y; y++) {
             for (int x = 0; x < KRAKEN_PIXELS_X; x++) {
                 if (kraken_pattern[y][x] == 'K') {
-                    // Wave pattern
+                    // Subtle pulse
                     float phase = (time_ms - 1000) / 1500.0f * M_PI * 2;
-                    float wave = sin(phase + (x + y) * 0.5f);
+                    float wave = sin(phase + (x + y) * 0.3f);
                     
-                    int size = KRAKEN_PIXEL_SIZE + (int)(wave * 2);
+                    int size = KRAKEN_PIXEL_SIZE + (int)(wave * 1);  // Smaller pulse
                     lv_obj_set_size(g_boot.pixels[y][x], size, size);
                     
-                    // Color animation
-                    int color_idx = ((x * y) + (time_ms / 150)) % COLOR_COUNT;
-                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], colors[color_idx], 0);
+                    // Keep space gray
+                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], lv_color_hex(0x3C3C3C), 0);
                     lv_obj_set_style_bg_opa(g_boot.pixels[y][x], LV_OPA_COVER, 0);
                 }
             }
         }
     } else if (time_ms < ANIMATION_DURATION_MS) {
-        // Phase 3: Fade to final cyan color
-        lv_color_t final_color = lv_color_hex(0x00FFFF);  // Cyan
-        
+        // Phase 3: Settle to final state
         for (int y = 0; y < KRAKEN_PIXELS_Y; y++) {
             for (int x = 0; x < KRAKEN_PIXELS_X; x++) {
                 if (kraken_pattern[y][x] == 'K') {
                     // Reset size
                     lv_obj_set_size(g_boot.pixels[y][x], KRAKEN_PIXEL_SIZE, KRAKEN_PIXEL_SIZE);
                     
-                    // Fade to final color
-                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], final_color, 0);
+                    // Final space gray
+                    lv_obj_set_style_bg_color(g_boot.pixels[y][x], lv_color_hex(0x3C3C3C), 0);
                     lv_obj_set_style_bg_opa(g_boot.pixels[y][x], LV_OPA_COVER, 0);
                     
-                    // Add glow effect
-                    lv_obj_set_style_border_color(g_boot.pixels[y][x], final_color, 0);
-                    lv_obj_set_style_border_width(g_boot.pixels[y][x], 2, 0);
+                    // Subtle border
+                    lv_obj_set_style_border_color(g_boot.pixels[y][x], lv_color_hex(0x3C3C3C), 0);
+                    lv_obj_set_style_border_width(g_boot.pixels[y][x], 1, 0);
                 }
             }
         }
@@ -175,16 +160,16 @@ esp_err_t ui_boot_animation_start(lv_obj_t *screen, ui_boot_animation_complete_c
     g_boot.frame = 0;
     g_boot.running = true;
 
-    // Set black background
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
+    // Set white background (iPod style)
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0xFFFFFF), 0);
 
     // Create pixel grid
     create_pixel_grid();
 
-    // Create "Kraken OS" label below the animation
+    // Create "Kraken OS" label below the animation - space gray
     g_boot.label = lv_label_create(screen);
     lv_label_set_text(g_boot.label, "Kraken OS");
-    lv_obj_set_style_text_color(g_boot.label, lv_color_hex(0x00FFFF), 0);
+    lv_obj_set_style_text_color(g_boot.label, lv_color_hex(0x3C3C3C), 0);  // Space gray
     lv_obj_align(g_boot.label, LV_ALIGN_BOTTOM_MID, 0, -20);
 
     // Start animation timer

@@ -1,6 +1,7 @@
 #include "kernel_internal.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include <stdlib.h>
 
 static const char *TAG = "kernel_evt";
 
@@ -11,6 +12,7 @@ esp_err_t kernel_event_init(void)
         ESP_LOGE(TAG, "Failed to create event mutex");
         return ESP_ERR_NO_MEM;
     }
+    ESP_LOGI(TAG, "Created event_mutex: %p", g_kernel.event_mutex);
 
     g_kernel.event_queue = xQueueCreate(32, sizeof(kraken_event_t));
     if (!g_kernel.event_queue) {
@@ -18,8 +20,9 @@ esp_err_t kernel_event_init(void)
         vSemaphoreDelete(g_kernel.event_mutex);
         return ESP_ERR_NO_MEM;
     }
+    ESP_LOGI(TAG, "Created event_queue: %p (item_size=%d)", g_kernel.event_queue, sizeof(kraken_event_t));
 
-    BaseType_t ret = xTaskCreate(kernel_event_task, "kraken_evt", 3072, NULL, 5, &g_kernel.event_task);
+    BaseType_t ret = xTaskCreate(kernel_event_task, "kraken_evt", 4096, NULL, 5, &g_kernel.event_task);
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create event task");
         vQueueDelete(g_kernel.event_queue);
@@ -154,16 +157,45 @@ void kernel_event_task(void *arg)
 {
     kraken_event_t evt;
 
+    ESP_LOGI(TAG, "Event task started");
+
     while (1) {
         if (xQueueReceive(g_kernel.event_queue, &evt, portMAX_DELAY) == pdTRUE) {
+            if (!g_kernel.event_mutex) {
+                ESP_LOGE(TAG, "Event mutex is NULL!");
+                continue;
+            }
+            
             if (xSemaphoreTake(g_kernel.event_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                // Allocate on heap to avoid stack overflow
+                event_listener_t *active_listeners = malloc(KRAKEN_MAX_EVENT_LISTENERS * sizeof(event_listener_t));
+                if (!active_listeners) {
+                    ESP_LOGE(TAG, "Failed to allocate memory for listeners!");
+                    xSemaphoreGive(g_kernel.event_mutex);
+                    continue;
+                }
+                
+                // Copy listeners to avoid holding mutex during callbacks
+                uint8_t active_count = 0;
                 for (uint8_t i = 0; i < g_kernel.listener_count; i++) {
                     if (g_kernel.listeners[i].event_type == evt.type ||
                         g_kernel.listeners[i].event_type == KRAKEN_EVENT_NONE) {
-                        g_kernel.listeners[i].handler(&evt, g_kernel.listeners[i].user_data);
+                        active_listeners[active_count++] = g_kernel.listeners[i];
                     }
                 }
+                
+                // Release mutex BEFORE calling handlers to avoid deadlock with LVGL
                 xSemaphoreGive(g_kernel.event_mutex);
+                
+                // Now call handlers without holding the mutex
+                for (uint8_t i = 0; i < active_count; i++) {
+                    active_listeners[i].handler(&evt, active_listeners[i].user_data);
+                }
+                
+                // Free allocated memory
+                free(active_listeners);
+            } else {
+                ESP_LOGW(TAG, "Failed to take event mutex");
             }
         }
     }

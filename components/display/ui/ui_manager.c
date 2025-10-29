@@ -163,6 +163,7 @@ void ui_manager_handle_event(const kraken_event_t *event)
 
         case KRAKEN_EVENT_INPUT_UP:
         case KRAKEN_EVENT_INPUT_DOWN:
+        case KRAKEN_EVENT_INPUT_LEFT:
         case KRAKEN_EVENT_INPUT_RIGHT:
             if (g_ui.in_submenu) {
                 ui_network_handle_input(event->type);
@@ -170,19 +171,11 @@ void ui_manager_handle_event(const kraken_event_t *event)
                 ui_menu_navigate(event->type);
             }
             break;
-            
-        case KRAKEN_EVENT_INPUT_LEFT:
-            if (g_ui.in_submenu) {
-                // LEFT = Back to main menu
-                ui_manager_exit_submenu();
-            } else {
-                ui_menu_navigate(event->type);
-            }
-            break;
 
         case KRAKEN_EVENT_INPUT_CENTER:
             if (g_ui.in_submenu) {
-                // Input handled by submenu
+                // Pass CENTER to submenu for interaction
+                ui_network_handle_input(event->type);
             } else {
                 ui_menu_select_current();
             }
@@ -196,7 +189,13 @@ void ui_manager_handle_event(const kraken_event_t *event)
 static void ui_event_handler(const kraken_event_t *event, void *user_data)
 {
     (void)user_data;
+    // Lock LVGL since event handler runs in event task context
+    extern void lvgl_port_lock(int timeout_ms);
+    extern void lvgl_port_unlock(void);
+    
+    lvgl_port_lock(0);
     ui_manager_handle_event(event);
+    lvgl_port_unlock();
 }
 
 static void ui_menu_selection_callback(ui_menu_item_t item)
@@ -245,8 +244,10 @@ static void ui_menu_selection_callback(ui_menu_item_t item)
 void ui_manager_exit_submenu(void)
 {
     if (g_ui.in_submenu) {
+        ESP_LOGI(TAG, "Exiting submenu...");
         g_ui.in_submenu = false;
         ui_network_screen_hide();
+        ESP_LOGI(TAG, "Submenu exited, back to main menu");
     }
 }
 

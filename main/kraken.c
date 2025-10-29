@@ -36,7 +36,7 @@ void app_main(void)
                                              bt_service_deinit));
 
     ESP_ERROR_CHECK(kraken_service_register("display",
-                                             KRAKEN_PERM_DISPLAY,
+                                             KRAKEN_PERM_DISPLAY | KRAKEN_PERM_WIFI | KRAKEN_PERM_NETWORK,
                                              display_service_init,
                                              display_service_deinit));
 
@@ -53,17 +53,5 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Kraken OS started successfully");
     ESP_LOGI(TAG, "Free heap: %d bytes", kraken_get_free_heap_size());
-
-    display_lock();
-    lv_obj_t *label = display_create_label(NULL, "Kraken OS\nReady!");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, -40);
-    
-    lv_obj_t *heap_label = display_create_label(NULL, "");
-    lv_obj_align(heap_label, LV_ALIGN_CENTER, 0, 0);
-    char heap_str[64];
-    snprintf(heap_str, sizeof(heap_str), "Free heap: %d KB", 
-             kraken_get_free_heap_size() / 1024);
-    lv_label_set_text(heap_label, heap_str);
-    display_unlock();
 }
 

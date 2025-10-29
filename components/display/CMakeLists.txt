@@ -6,6 +6,7 @@ idf_component_register(
          "ui/ui_manager.c"
          "ui/ui_network.c"
          "ui/ui_boot_animation.c"
+         "ui/ui_keyboard.c"
     INCLUDE_DIRS "include" "ui"
     REQUIRES esp_lcd esp_lvgl_port lvgl bsp kernel esp_timer wifi
 )

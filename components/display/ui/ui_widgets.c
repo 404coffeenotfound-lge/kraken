@@ -27,25 +27,26 @@ lv_obj_t *ui_create_icon_label(lv_obj_t *parent, const char *symbol, const char 
 lv_obj_t *ui_create_menu_item(lv_obj_t *parent, const char *title, const char *icon)
 {
     lv_obj_t *item = lv_obj_create(parent);
-    lv_obj_set_size(item, LV_PCT(95), 50);
-    lv_obj_set_style_bg_color(item, lv_color_hex(0x222222), 0);
-    lv_obj_set_style_border_color(item, lv_color_hex(0x444444), 0);
-    lv_obj_set_style_border_width(item, 1, 0);
-    lv_obj_set_style_radius(item, 8, 0);
-    lv_obj_set_style_pad_all(item, 10, 0);
+    lv_obj_set_width(item, LV_HOR_RES - 20);
+    lv_obj_set_height(item, 50);
+    lv_obj_set_style_bg_color(item, lv_color_hex(0xFFFFFF), 0);  // White = Black
+    lv_obj_set_style_radius(item, 0, 0);  // Rectangle, no radius
+    lv_obj_set_style_border_width(item, 1, 0);  // Border
+    lv_obj_set_style_border_color(item, lv_color_hex(0x7F7F7F), 0);  // Gray border
+    lv_obj_set_style_pad_all(item, 12, 0);
     lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(item, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Icon - use default font (symbols work fine)
+    // Icon - white
     lv_obj_t *icon_label = lv_label_create(item);
     lv_label_set_text(icon_label, icon);
-    lv_obj_set_style_text_color(icon_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(icon_label, lv_color_hex(0x000000), 0);  // Black = White
 
-    // Title
+    // Title - white
     lv_obj_t *title_label = lv_label_create(item);
     lv_label_set_text(title_label, title);
-    lv_obj_set_style_text_color(title_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(title_label, lv_color_hex(0x000000), 0);  // Black = White
     lv_obj_set_style_pad_left(title_label, 15, 0);
 
     return item;
@@ -58,14 +59,14 @@ void ui_set_menu_item_selected(lv_obj_t *item, bool selected)
     }
 
     if (selected) {
-        // Highlight selected item
-        lv_obj_set_style_bg_color(item, lv_color_hex(0x0080FF), 0);
-        lv_obj_set_style_border_color(item, lv_color_hex(0x00AAFF), 0);
+        // Selected - darker gray background
+        lv_obj_set_style_bg_color(item, lv_color_hex(0xC0C0C0), 0);  // Gray
+        lv_obj_set_style_border_color(item, lv_color_hex(0x000000), 0);  // White border
         lv_obj_set_style_border_width(item, 2, 0);
     } else {
-        // Normal state
-        lv_obj_set_style_bg_color(item, lv_color_hex(0x222222), 0);
-        lv_obj_set_style_border_color(item, lv_color_hex(0x444444), 0);
+        // Normal - black background
+        lv_obj_set_style_bg_color(item, lv_color_hex(0xFFFFFF), 0);  // Black
+        lv_obj_set_style_border_color(item, lv_color_hex(0x7F7F7F), 0);  // Gray border
         lv_obj_set_style_border_width(item, 1, 0);
     }
 }

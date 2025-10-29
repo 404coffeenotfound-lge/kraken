@@ -5,7 +5,7 @@
 static const char *TAG = "ui_menu";
 
 #define MENU_ITEM_HEIGHT 60
-#define MENU_START_Y 40  // Below top bar
+#define TOPBAR_HEIGHT 30
 
 typedef struct {
     const char *title;
@@ -34,15 +34,18 @@ esp_err_t ui_menu_init(lv_obj_t *parent)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // Create menu container below top bar
+    // Create menu container - black background, white text
     g_menu.container = lv_obj_create(parent);
-    lv_obj_set_size(g_menu.container, LV_PCT(100), LV_PCT(100) - MENU_START_Y);
-    lv_obj_align(g_menu.container, LV_ALIGN_TOP_MID, 0, MENU_START_Y);
-    lv_obj_set_style_bg_color(g_menu.container, lv_color_hex(0x111111), 0);
+    lv_obj_set_size(g_menu.container, LV_HOR_RES, LV_VER_RES - TOPBAR_HEIGHT);
+    lv_obj_set_pos(g_menu.container, 0, TOPBAR_HEIGHT);
+    lv_obj_set_style_bg_color(g_menu.container, lv_color_hex(0xFFFFFF), 0);  // White = Black
     lv_obj_set_style_border_width(g_menu.container, 0, 0);
-    lv_obj_set_style_pad_all(g_menu.container, 10, 0);
+    lv_obj_set_style_pad_all(g_menu.container, 5, 0);
+    lv_obj_set_style_pad_gap(g_menu.container, 5, 0);
+    lv_obj_set_scroll_dir(g_menu.container, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(g_menu.container, LV_SCROLLBAR_MODE_AUTO);
     lv_obj_set_flex_flow(g_menu.container, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(g_menu.container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(g_menu.container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
 
     // Create menu items
     for (int i = 0; i < UI_MENU_ITEM_COUNT; i++) {
@@ -98,6 +101,9 @@ void ui_menu_navigate(kraken_event_type_t direction)
         // Select new item
         g_menu.selected_index = new_index;
         ui_set_menu_item_selected(g_menu.items[new_index], true);
+        
+        // Scroll to make selected item visible
+        lv_obj_scroll_to_view(g_menu.items[new_index], LV_ANIM_ON);
         
         ESP_LOGI(TAG, "Menu selection changed: %d -> %d (%s)", 
                  old_index, new_index, g_menu_items[new_index].title);

@@ -143,8 +143,7 @@ bool wifi_service_is_enabled(void)
 
 esp_err_t wifi_service_scan(void)
 {
-    // Check if caller has WiFi permission
-    KRAKEN_CHECK_PERMISSION(KRAKEN_PERM_WIFI);
+    // Note: No permission check - UI can initiate scan on behalf of user
     
     if (!g_wifi.initialized || !g_wifi.enabled) {
         return ESP_ERR_INVALID_STATE;
@@ -187,9 +186,6 @@ esp_err_t wifi_service_get_scan_results(wifi_scan_result_t *results)
 
 esp_err_t wifi_service_connect(const char *ssid, const char *password)
 {
-    // Check if caller has WiFi permission
-    KRAKEN_CHECK_PERMISSION(KRAKEN_PERM_WIFI);
-    
     if (!g_wifi.initialized || !g_wifi.enabled || !ssid) {
         return ESP_ERR_INVALID_ARG;
     }

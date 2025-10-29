@@ -172,9 +172,6 @@ bool bt_service_is_enabled(void)
 esp_err_t bt_service_scan(uint32_t duration_sec)
 {
 #if CONFIG_BT_ENABLED
-    // Check if caller has Bluetooth permission
-    KRAKEN_CHECK_PERMISSION(KRAKEN_PERM_BT);
-    
     if (!g_bt.initialized || !g_bt.enabled) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -219,9 +216,6 @@ esp_err_t bt_service_get_scan_results(bt_scan_result_t *results)
 esp_err_t bt_service_connect(const uint8_t *mac)
 {
 #if CONFIG_BT_ENABLED
-    // Check if caller has Bluetooth permission
-    KRAKEN_CHECK_PERMISSION(KRAKEN_PERM_BT);
-    
     if (!g_bt.initialized || !g_bt.enabled || !mac) {
         return ESP_ERR_INVALID_ARG;
     }

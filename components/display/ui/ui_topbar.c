@@ -27,42 +27,46 @@ esp_err_t ui_topbar_init(lv_obj_t *parent)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // Create top bar container
+    // Create top bar container - rectangle with border and separator
     g_topbar.bar = lv_obj_create(parent);
     lv_obj_set_size(g_topbar.bar, LV_PCT(100), TOPBAR_HEIGHT);
     lv_obj_align(g_topbar.bar, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_bg_color(g_topbar.bar, lv_color_hex(0x222222), 0);
-    lv_obj_set_style_border_width(g_topbar.bar, 0, 0);
+    lv_obj_set_style_bg_color(g_topbar.bar, lv_color_hex(0xFFFFFF), 0);  // White = Black
+    lv_obj_set_style_radius(g_topbar.bar, 0, 0);  // Rectangle, no radius
+    lv_obj_set_style_border_width(g_topbar.bar, 1, 0);  // Border
+    lv_obj_set_style_border_color(g_topbar.bar, lv_color_hex(0x7F7F7F), 0);  // Gray border
+    lv_obj_set_style_border_side(g_topbar.bar, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_pad_all(g_topbar.bar, 5, 0);
     lv_obj_clear_flag(g_topbar.bar, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Digital clock in center
+    // Digital clock - white text, top left
     g_topbar.time_label = lv_label_create(g_topbar.bar);
-    lv_label_set_text(g_topbar.time_label, "--:--");
-    lv_obj_set_style_text_color(g_topbar.time_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(g_topbar.time_label, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(g_topbar.time_label, "--:-- --");
+    lv_obj_set_style_text_color(g_topbar.time_label, lv_color_hex(0x000000), 0);  // Black = White
+    lv_obj_align(g_topbar.time_label, LV_ALIGN_LEFT_MID, 5, 0);
 
-    // Battery icon + percent (rightmost)
+    // Battery icon - white
     g_topbar.battery_icon = lv_label_create(g_topbar.bar);
     lv_label_set_text(g_topbar.battery_icon, BATTERY_SYMBOL);
-    lv_obj_set_style_text_color(g_topbar.battery_icon, lv_color_hex(0x00FF00), 0);
-    lv_obj_align(g_topbar.battery_icon, LV_ALIGN_RIGHT_MID, -25, 0);
+    lv_obj_set_style_text_color(g_topbar.battery_icon, lv_color_hex(0x000000), 0);  // Black = White
+    lv_obj_align(g_topbar.battery_icon, LV_ALIGN_RIGHT_MID, -35, 0);
 
+    // Battery percentage - white
     g_topbar.battery_label = lv_label_create(g_topbar.bar);
     lv_label_set_text(g_topbar.battery_label, "??%");
-    lv_obj_set_style_text_color(g_topbar.battery_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(g_topbar.battery_label, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_text_color(g_topbar.battery_label, lv_color_hex(0x000000), 0);  // Black = White
+    lv_obj_align(g_topbar.battery_label, LV_ALIGN_RIGHT_MID, -5, 0);
 
     // Bluetooth icon
     g_topbar.bt_icon = lv_label_create(g_topbar.bar);
     lv_label_set_text(g_topbar.bt_icon, BT_SYMBOL);
-    lv_obj_set_style_text_color(g_topbar.bt_icon, lv_color_hex(0x808080), 0);
+    lv_obj_set_style_text_color(g_topbar.bt_icon, lv_color_hex(0xC0C0C0), 0);  // Gray when inactive
     lv_obj_align_to(g_topbar.bt_icon, g_topbar.battery_icon, LV_ALIGN_OUT_LEFT_MID, -10, 0);
 
     // WiFi icon
     g_topbar.wifi_icon = lv_label_create(g_topbar.bar);
     lv_label_set_text(g_topbar.wifi_icon, WIFI_SYMBOL);
-    lv_obj_set_style_text_color(g_topbar.wifi_icon, lv_color_hex(0x808080), 0);
+    lv_obj_set_style_text_color(g_topbar.wifi_icon, lv_color_hex(0xC0C0C0), 0);  // Gray when inactive
     lv_obj_align_to(g_topbar.wifi_icon, g_topbar.bt_icon, LV_ALIGN_OUT_LEFT_MID, -10, 0);
 
     ESP_LOGI(TAG, "Top bar initialized");
@@ -75,9 +79,19 @@ void ui_topbar_update_time(struct tm *time)
         return;
     }
 
-    char time_str[16];
-    snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", 
-             time->tm_hour, time->tm_min, time->tm_sec);
+    char time_str[20];
+    int hour = time->tm_hour;
+    const char *am_pm = (hour >= 12) ? "PM" : "AM";
+    
+    // Convert to 12-hour format
+    if (hour == 0) {
+        hour = 12;  // Midnight
+    } else if (hour > 12) {
+        hour -= 12;  // PM hours
+    }
+    
+    snprintf(time_str, sizeof(time_str), "%d:%02d %s", 
+             hour, time->tm_min, am_pm);
     lv_label_set_text(g_topbar.time_label, time_str);
 }
 
@@ -89,18 +103,10 @@ void ui_topbar_update_wifi(bool connected, int8_t rssi)
 
     if (!connected) {
         // Disconnected - gray
-        lv_obj_set_style_text_color(g_topbar.wifi_icon, lv_color_hex(0x808080), 0);
+        lv_obj_set_style_text_color(g_topbar.wifi_icon, lv_color_hex(0xC0C0C0), 0);
     } else {
-        // Connected - color based on signal strength
-        lv_color_t color;
-        if (rssi > -50) {
-            color = lv_color_hex(0x00FF00);  // Strong - green
-        } else if (rssi > -70) {
-            color = lv_color_hex(0xFFFF00);  // Medium - yellow
-        } else {
-            color = lv_color_hex(0xFF8800);  // Weak - orange
-        }
-        lv_obj_set_style_text_color(g_topbar.wifi_icon, color, 0);
+        // Connected - white
+        lv_obj_set_style_text_color(g_topbar.wifi_icon, lv_color_hex(0x000000), 0);
     }
 }
 
@@ -112,11 +118,11 @@ void ui_topbar_update_bluetooth(bool enabled, bool connected)
 
     lv_color_t color;
     if (!enabled) {
-        color = lv_color_hex(0x404040);  // Off - dark gray
+        color = lv_color_hex(0xE0E0E0);  // Very light gray when off
     } else if (connected) {
-        color = lv_color_hex(0x0080FF);  // Connected - blue
+        color = lv_color_hex(0x000000);  // White when connected
     } else {
-        color = lv_color_hex(0x808080);  // On but not connected - gray
+        color = lv_color_hex(0xC0C0C0);  // Gray when on but not connected
     }
     lv_obj_set_style_text_color(g_topbar.bt_icon, color, 0);
 }
@@ -132,14 +138,10 @@ void ui_topbar_update_battery(uint8_t percent, bool charging)
     snprintf(pct_str, sizeof(pct_str), "%d%%", percent);
     lv_label_set_text(g_topbar.battery_label, pct_str);
 
-    // Update color based on level
+    // Update color
     lv_color_t color;
-    if (charging) {
-        color = lv_color_hex(0x00FFFF);  // Charging - cyan
-    } else if (percent > 50) {
-        color = lv_color_hex(0x00FF00);  // Good - green
-    } else if (percent > 20) {
-        color = lv_color_hex(0xFFFF00);  // Low - yellow
+    if (percent > 20) {
+        color = lv_color_hex(0x000000);  // Normal - white
     } else {
         color = lv_color_hex(0xFF0000);  // Critical - red
     }
