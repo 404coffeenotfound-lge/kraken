@@ -6,12 +6,19 @@
 
 static const char *TAG = "ui_manager";
 
+typedef enum {
+    SUBMENU_NONE = 0,
+    SUBMENU_NETWORK,
+    SUBMENU_BLUETOOTH,
+} active_submenu_t;
+
 static struct {
     bool initialized;
     ui_status_t status;
     lv_obj_t *screen;
     lv_obj_t *network_screen;
-    bool in_submenu;
+    lv_obj_t *bluetooth_screen;
+    active_submenu_t active_submenu;
     bool boot_animation_done;
 } g_ui = {0};
 
@@ -52,6 +59,9 @@ static void boot_animation_complete(void)
     
     // Create network submenu screen (initially hidden)
     g_ui.network_screen = ui_network_screen_create(g_ui.screen);
+    
+    // Create bluetooth submenu screen (initially hidden)
+    g_ui.bluetooth_screen = ui_bluetooth_screen_create(g_ui.screen);
 
     // Set menu callback
     ui_menu_set_callback(ui_menu_selection_callback);
@@ -62,6 +72,7 @@ static void boot_animation_complete(void)
     kraken_event_subscribe(KRAKEN_EVENT_WIFI_SCAN_DONE, ui_event_handler, NULL);
     kraken_event_subscribe(KRAKEN_EVENT_BT_CONNECTED, ui_event_handler, NULL);
     kraken_event_subscribe(KRAKEN_EVENT_BT_DISCONNECTED, ui_event_handler, NULL);
+    kraken_event_subscribe(KRAKEN_EVENT_BT_SCAN_DONE, ui_event_handler, NULL);
     kraken_event_subscribe(KRAKEN_EVENT_SYSTEM_TIME_SYNC, ui_event_handler, NULL);
     
     // Subscribe to input events for navigation
@@ -112,7 +123,7 @@ void ui_manager_handle_event(const kraken_event_t *event)
 
     switch (event->type) {
         case KRAKEN_EVENT_WIFI_SCAN_DONE:
-            if (g_ui.in_submenu) {
+            if (g_ui.active_submenu == SUBMENU_NETWORK) {
                 ui_network_update_scan_results();
             }
             ESP_LOGI(TAG, "WiFi scan completed");
@@ -124,7 +135,7 @@ void ui_manager_handle_event(const kraken_event_t *event)
             g_ui.status.wifi_rssi = -50;  // Example
             ui_topbar_update_wifi(true, g_ui.status.wifi_rssi);
             
-            if (g_ui.in_submenu) {
+            if (g_ui.active_submenu == SUBMENU_NETWORK) {
                 ui_network_on_wifi_connected();
             }
             ESP_LOGI(TAG, "WiFi connected");
@@ -134,21 +145,36 @@ void ui_manager_handle_event(const kraken_event_t *event)
             g_ui.status.wifi_connected = false;
             ui_topbar_update_wifi(false, 0);
             
-            if (g_ui.in_submenu) {
+            if (g_ui.active_submenu == SUBMENU_NETWORK) {
                 ui_network_on_wifi_disconnected(false);
             }
             ESP_LOGI(TAG, "WiFi disconnected");
             break;
 
+        case KRAKEN_EVENT_BT_SCAN_DONE:
+            if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
+                ui_bluetooth_update_scan_results();
+            }
+            ESP_LOGI(TAG, "Bluetooth scan completed");
+            break;
+
         case KRAKEN_EVENT_BT_CONNECTED:
             g_ui.status.bt_connected = true;
             ui_topbar_update_bluetooth(g_ui.status.bt_enabled, true);
+            
+            if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
+                ui_bluetooth_on_bt_connected();
+            }
             ESP_LOGI(TAG, "Bluetooth connected");
             break;
 
         case KRAKEN_EVENT_BT_DISCONNECTED:
             g_ui.status.bt_connected = false;
             ui_topbar_update_bluetooth(g_ui.status.bt_enabled, false);
+            
+            if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
+                ui_bluetooth_on_bt_disconnected(false);
+            }
             ESP_LOGI(TAG, "Bluetooth disconnected");
             break;
 
@@ -165,17 +191,20 @@ void ui_manager_handle_event(const kraken_event_t *event)
         case KRAKEN_EVENT_INPUT_DOWN:
         case KRAKEN_EVENT_INPUT_LEFT:
         case KRAKEN_EVENT_INPUT_RIGHT:
-            if (g_ui.in_submenu) {
+            if (g_ui.active_submenu == SUBMENU_NETWORK) {
                 ui_network_handle_input(event->type);
+            } else if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
+                ui_bluetooth_handle_input(event->type);
             } else {
                 ui_menu_navigate(event->type);
             }
             break;
 
         case KRAKEN_EVENT_INPUT_CENTER:
-            if (g_ui.in_submenu) {
-                // Pass CENTER to submenu for interaction
+            if (g_ui.active_submenu == SUBMENU_NETWORK) {
                 ui_network_handle_input(event->type);
+            } else if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
+                ui_bluetooth_handle_input(event->type);
             } else {
                 ui_menu_select_current();
             }
@@ -212,13 +241,14 @@ static void ui_menu_selection_callback(ui_menu_item_t item)
         case UI_MENU_ITEM_NETWORK:
             ESP_LOGI(TAG, "Opening Network settings");
             // Show network submenu
-            g_ui.in_submenu = true;
+            g_ui.active_submenu = SUBMENU_NETWORK;
             ui_network_screen_show();
             break;
             
         case UI_MENU_ITEM_BLUETOOTH:
             ESP_LOGI(TAG, "Opening Bluetooth settings");
-            // TODO: Open bluetooth settings screen
+            g_ui.active_submenu = SUBMENU_BLUETOOTH;
+            ui_bluetooth_screen_show();
             break;
             
         case UI_MENU_ITEM_APPS:
@@ -243,10 +273,21 @@ static void ui_menu_selection_callback(ui_menu_item_t item)
 
 void ui_manager_exit_submenu(void)
 {
-    if (g_ui.in_submenu) {
+    if (g_ui.active_submenu != SUBMENU_NONE) {
         ESP_LOGI(TAG, "Exiting submenu...");
-        g_ui.in_submenu = false;
-        ui_network_screen_hide();
+        
+        switch (g_ui.active_submenu) {
+            case SUBMENU_NETWORK:
+                ui_network_screen_hide();
+                break;
+            case SUBMENU_BLUETOOTH:
+                ui_bluetooth_screen_hide();
+                break;
+            default:
+                break;
+        }
+        
+        g_ui.active_submenu = SUBMENU_NONE;
         ESP_LOGI(TAG, "Submenu exited, back to main menu");
     }
 }

@@ -12,10 +12,26 @@ extern "C" {
 #define BT_MAC_ADDR_LEN 6
 #define BT_MAX_SCAN_RESULTS 20
 
+// Device class/type detection
+typedef enum {
+    BT_DEVICE_TYPE_UNKNOWN = 0,
+    BT_DEVICE_TYPE_PHONE,
+    BT_DEVICE_TYPE_COMPUTER,
+    BT_DEVICE_TYPE_HEADSET,
+    BT_DEVICE_TYPE_SPEAKER,
+    BT_DEVICE_TYPE_KEYBOARD,
+    BT_DEVICE_TYPE_MOUSE,
+    BT_DEVICE_TYPE_GAMEPAD,
+    BT_DEVICE_TYPE_GPS,
+    BT_DEVICE_TYPE_SERIAL,
+} bt_device_type_t;
+
 typedef struct {
     char name[BT_DEVICE_NAME_MAX_LEN];
     uint8_t mac[BT_MAC_ADDR_LEN];
     int8_t rssi;
+    bt_device_type_t device_type;  // Detected device type
+    uint32_t class_of_device;      // Bluetooth CoD (Class of Device)
 } bt_device_info_t;
 
 typedef struct {
