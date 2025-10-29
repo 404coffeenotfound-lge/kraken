@@ -1,5 +1,5 @@
 #include "ui_internal.h"
-#include "kraken/ui_boot_animation.h"
+#include "ui_boot_animation.h"
 #include "esp_log.h"
 #include "esp_sntp.h"
 #include <string.h>
@@ -10,6 +10,7 @@ typedef enum {
     SUBMENU_NONE = 0,
     SUBMENU_NETWORK,
     SUBMENU_BLUETOOTH,
+    SUBMENU_AUDIO,
 } active_submenu_t;
 
 static struct {
@@ -18,6 +19,7 @@ static struct {
     lv_obj_t *screen;
     lv_obj_t *network_screen;
     lv_obj_t *bluetooth_screen;
+    lv_obj_t *audio_screen;
     active_submenu_t active_submenu;
     bool boot_animation_done;
 } g_ui = {0};
@@ -62,6 +64,9 @@ static void boot_animation_complete(void)
     
     // Create bluetooth submenu screen (initially hidden)
     g_ui.bluetooth_screen = ui_bluetooth_screen_create(g_ui.screen);
+    
+    // Create audio submenu screen (initially hidden)
+    g_ui.audio_screen = ui_audio_screen_create(g_ui.screen);
 
     // Set menu callback
     ui_menu_set_callback(ui_menu_selection_callback);
@@ -195,6 +200,8 @@ void ui_manager_handle_event(const kraken_event_t *event)
                 ui_network_handle_input(event->type);
             } else if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
                 ui_bluetooth_handle_input(event->type);
+            } else if (g_ui.active_submenu == SUBMENU_AUDIO) {
+                ui_audio_handle_input(event->type);
             } else {
                 ui_menu_navigate(event->type);
             }
@@ -205,6 +212,8 @@ void ui_manager_handle_event(const kraken_event_t *event)
                 ui_network_handle_input(event->type);
             } else if (g_ui.active_submenu == SUBMENU_BLUETOOTH) {
                 ui_bluetooth_handle_input(event->type);
+            } else if (g_ui.active_submenu == SUBMENU_AUDIO) {
+                ui_audio_handle_input(event->type);
             } else {
                 ui_menu_select_current();
             }
@@ -234,8 +243,9 @@ static void ui_menu_selection_callback(ui_menu_item_t item)
     // Handle menu selection
     switch (item) {
         case UI_MENU_ITEM_AUDIO:
-            ESP_LOGI(TAG, "Opening Audio settings");
-            // TODO: Open audio settings screen
+            ESP_LOGI(TAG, "Opening Audio menu");
+            g_ui.active_submenu = SUBMENU_AUDIO;
+            ui_audio_screen_show();
             break;
             
         case UI_MENU_ITEM_NETWORK:
@@ -282,6 +292,9 @@ void ui_manager_exit_submenu(void)
                 break;
             case SUBMENU_BLUETOOTH:
                 ui_bluetooth_screen_hide();
+                break;
+            case SUBMENU_AUDIO:
+                ui_audio_screen_hide();
                 break;
             default:
                 break;

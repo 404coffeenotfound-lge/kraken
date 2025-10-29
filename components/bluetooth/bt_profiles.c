@@ -219,6 +219,82 @@ static esp_err_t a2dp_sink_deinit(void)
     return ESP_OK;
 }
 
+// ============================================================================
+// A2DP Source (Advanced Audio Distribution Profile - Source) Implementation
+// ============================================================================
+
+static void a2dp_source_callback(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
+{
+    switch (event) {
+        case ESP_A2D_CONNECTION_STATE_EVT:
+            if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
+                ESP_LOGI(TAG, "A2DP Source connected");
+                if (g_profiles.status_cb) {
+                    g_profiles.status_cb(BT_PROFILE_A2DP_SOURCE, true, g_profiles.status_user_data);
+                }
+                kraken_event_post(KRAKEN_EVENT_BT_CONNECTED, NULL, 0);
+            } else if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
+                ESP_LOGI(TAG, "A2DP Source disconnected");
+                g_profiles.a2dp_playing = false;
+                if (g_profiles.status_cb) {
+                    g_profiles.status_cb(BT_PROFILE_A2DP_SOURCE, false, g_profiles.status_user_data);
+                }
+                kraken_event_post(KRAKEN_EVENT_BT_DISCONNECTED, NULL, 0);
+            }
+            break;
+            
+        case ESP_A2D_AUDIO_STATE_EVT:
+            if (param->audio_stat.state == ESP_A2D_AUDIO_STATE_STARTED) {
+                ESP_LOGI(TAG, "A2DP Source audio started");
+                g_profiles.a2dp_playing = true;
+            } else if (param->audio_stat.state == ESP_A2D_AUDIO_STATE_STOPPED) {
+                ESP_LOGI(TAG, "A2DP Source audio stopped");
+                g_profiles.a2dp_playing = false;
+            } else if (param->audio_stat.state == ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND) {
+                ESP_LOGI(TAG, "A2DP Source audio suspended by remote");
+                g_profiles.a2dp_playing = false;
+            }
+            break;
+            
+        case ESP_A2D_AUDIO_CFG_EVT:
+            ESP_LOGI(TAG, "A2DP Source audio config, codec type: %d", param->audio_cfg.mcc.type);
+            // SBC codec configuration received
+            break;
+            
+        case ESP_A2D_MEDIA_CTRL_ACK_EVT:
+            ESP_LOGI(TAG, "A2DP Source media control ACK: %d", param->media_ctrl_stat.cmd);
+            break;
+            
+        default:
+            ESP_LOGD(TAG, "A2DP Source event: %d", event);
+            break;
+    }
+}
+
+static esp_err_t a2dp_source_init(void)
+{
+    esp_err_t ret = esp_a2d_register_callback(a2dp_source_callback);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "A2DP Source register callback failed: %d", ret);
+        return ret;
+    }
+    
+    ret = esp_a2d_source_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "A2DP Source init failed: %d", ret);
+        return ret;
+    }
+    
+    ESP_LOGI(TAG, "A2DP Source initialized");
+    return ESP_OK;
+}
+
+static esp_err_t a2dp_source_deinit(void)
+{
+    esp_a2d_source_deinit();
+    ESP_LOGI(TAG, "A2DP Source deinitialized");
+    return ESP_OK;
+}
 
 // ============================================================================
 // AVRCP (Audio/Video Remote Control Profile) Implementation
@@ -489,6 +565,10 @@ esp_err_t bt_profile_enable(bt_profile_t profile)
             ret = a2dp_sink_init();
             break;
             
+        case BT_PROFILE_A2DP_SOURCE:
+            ret = a2dp_source_init();
+            break;
+            
         case BT_PROFILE_AVRCP:
             ret = avrcp_init();
             break;
@@ -535,6 +615,10 @@ esp_err_t bt_profile_disable(bt_profile_t profile)
             
         case BT_PROFILE_A2DP_SINK:
             ret = a2dp_sink_deinit();
+            break;
+            
+        case BT_PROFILE_A2DP_SOURCE:
+            ret = a2dp_source_deinit();
             break;
             
         case BT_PROFILE_AVRCP:
@@ -616,6 +700,94 @@ void bt_a2dp_set_data_callback(bt_a2dp_data_cb_t cb, void *user_data)
     g_profiles.a2dp_user_data = user_data;
 }
 
+// A2DP Source Functions
+esp_err_t bt_a2dp_source_connect(const uint8_t *remote_bda)
+{
+    if (!is_profile_enabled(BT_PROFILE_A2DP_SOURCE)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    if (!remote_bda) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    esp_err_t ret = esp_a2d_source_connect(remote_bda);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "A2DP Source connecting to device");
+    } else {
+        ESP_LOGE(TAG, "A2DP Source connect failed: %d", ret);
+    }
+    
+    return ret;
+}
+
+esp_err_t bt_a2dp_source_disconnect(void)
+{
+    if (!is_profile_enabled(BT_PROFILE_A2DP_SOURCE)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    esp_err_t ret = esp_a2d_source_disconnect(NULL);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "A2DP Source disconnecting");
+    }
+    
+    return ret;
+}
+
+esp_err_t bt_a2dp_source_start_stream(void)
+{
+    if (!is_profile_enabled(BT_PROFILE_A2DP_SOURCE)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    esp_a2d_media_ctrl_t ctrl = ESP_A2D_MEDIA_CTRL_START;
+    esp_err_t ret = esp_a2d_media_ctrl(ctrl);
+    
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "A2DP Source stream started");
+    } else {
+        ESP_LOGE(TAG, "A2DP Source start stream failed: %d", ret);
+    }
+    
+    return ret;
+}
+
+esp_err_t bt_a2dp_source_stop_stream(void)
+{
+    if (!is_profile_enabled(BT_PROFILE_A2DP_SOURCE)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    esp_a2d_media_ctrl_t ctrl = ESP_A2D_MEDIA_CTRL_STOP;
+    esp_err_t ret = esp_a2d_media_ctrl(ctrl);
+    
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "A2DP Source stream stopped");
+    }
+    
+    return ret;
+}
+
+esp_err_t bt_a2dp_source_write_data(const uint8_t *data, uint32_t len)
+{
+    if (!is_profile_enabled(BT_PROFILE_A2DP_SOURCE)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    if (!data || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    // Send audio data to A2DP source
+    esp_err_t ret = esp_a2d_source_write_data((uint8_t *)data, len);
+    
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "A2DP Source write data failed: %d", ret);
+    }
+    
+    return ret;
+}
 
 // AVRCP Functions
 esp_err_t bt_avrcp_send_play(void)
@@ -752,6 +924,12 @@ void bt_spp_set_data_callback(bt_spp_data_cb_t cb, void *user_data) {}
 esp_err_t bt_a2dp_start_playback(void) { return ESP_ERR_NOT_SUPPORTED; }
 esp_err_t bt_a2dp_stop_playback(void) { return ESP_ERR_NOT_SUPPORTED; }
 void bt_a2dp_set_data_callback(bt_a2dp_data_cb_t cb, void *user_data) {}
+
+esp_err_t bt_a2dp_source_connect(const uint8_t *remote_bda) { return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bt_a2dp_source_disconnect(void) { return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bt_a2dp_source_start_stream(void) { return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bt_a2dp_source_stop_stream(void) { return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bt_a2dp_source_write_data(const uint8_t *data, uint32_t len) { return ESP_ERR_NOT_SUPPORTED; }
 
 esp_err_t bt_avrcp_send_play(void) { return ESP_ERR_NOT_SUPPORTED; }
 esp_err_t bt_avrcp_send_pause(void) { return ESP_ERR_NOT_SUPPORTED; }

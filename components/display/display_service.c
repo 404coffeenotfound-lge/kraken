@@ -1,7 +1,7 @@
 #include "kraken/display_service.h"
 #include "kraken/kernel.h"
 #include "kraken/bsp.h"
-#include "ui/ui_internal.h"
+#include "ui_internal.h"
 #include "esp_lvgl_port.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"

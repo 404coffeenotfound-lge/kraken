@@ -1,4 +1,4 @@
-#include "kraken/ui_boot_animation.h"
+#include "ui_boot_animation.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <math.h>

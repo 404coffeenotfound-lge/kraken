@@ -1,5 +1,5 @@
 #include "ui_internal.h"
-#include "ui_keyboard.h"
+#include "kraken/ui_keyboard.h"
 #include "kraken/bt_service.h"
 #include "esp_log.h"
 #include <string.h>

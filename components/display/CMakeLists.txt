@@ -8,6 +8,7 @@ idf_component_register(
          "ui/ui_boot_animation.c"
          "ui/ui_keyboard.c"
          "ui/ui_bluetooth.c"
+         "ui/ui_audio.c"
     INCLUDE_DIRS "include" "ui"
-    REQUIRES esp_lcd esp_lvgl_port lvgl bsp kernel esp_timer wifi bluetooth
+    REQUIRES esp_lcd esp_lvgl_port lvgl bsp kernel esp_timer wifi bluetooth esp_http_client
 )

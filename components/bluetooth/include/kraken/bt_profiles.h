@@ -73,6 +73,13 @@ esp_err_t bt_a2dp_start_playback(void);
 esp_err_t bt_a2dp_stop_playback(void);
 void bt_a2dp_set_data_callback(bt_a2dp_data_cb_t cb, void *user_data);
 
+// A2DP Source Functions (send audio to headphones/speakers)
+esp_err_t bt_a2dp_source_connect(const uint8_t *remote_bda);
+esp_err_t bt_a2dp_source_disconnect(void);
+esp_err_t bt_a2dp_source_start_stream(void);
+esp_err_t bt_a2dp_source_stop_stream(void);
+esp_err_t bt_a2dp_source_write_data(const uint8_t *data, uint32_t len);
+
 // AVRCP Functions
 esp_err_t bt_avrcp_send_play(void);
 esp_err_t bt_avrcp_send_pause(void);
